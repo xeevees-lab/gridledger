@@ -1,0 +1,73 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <!-- GridLedger Dashboard: Windows installer (MSI). The screens customers use; data comes from the GridLedger Engine.
+       Installs as a Windows service with automatic restart, adds a Start-menu link, keeps settings on upgrade. -->
+  <Package Name="GridLedger Dashboard"
+           Manufacturer="GridLedger"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="89e47a1d-faaa-471a-ae54-7a5a4267ac37"
+           Scope="perMachine"
+           Compressed="yes">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of GridLedger Dashboard is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ARPURLINFOABOUT" Value="http://127.0.0.1:8080" />
+    <Property Id="ARPNOREPAIR" Value="1" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="GridLedger Dashboard">
+        <Component Id="MainExe" Guid="bab0433a-2d3a-4a6d-b418-2ea7f580bd21">
+          <File Id="DashboardExe" Source="$(var.PublishDir)\GridLedger.Dashboard.exe" KeyPath="yes" />
+          <ServiceInstall Id="DashboardService"
+                          Name="GridLedgerDashboard"
+                          DisplayName="GridLedger Dashboard"
+                          Description="GridLedger screens. Shows data from the GridLedger Engine."
+                          Type="ownProcess"
+                          Start="auto"
+                          Account="LocalSystem"
+                          ErrorControl="normal"
+                          Vital="yes">
+            <util:ServiceConfig FirstFailureActionType="restart"
+                                SecondFailureActionType="restart"
+                                ThirdFailureActionType="restart"
+                                RestartServiceDelayInSeconds="10"
+                                ResetPeriodInDays="1" />
+          </ServiceInstall>
+          <ServiceControl Id="DashboardServiceControl" Name="GridLedgerDashboard" Start="install" Stop="both" Remove="uninstall" Wait="yes" />
+          <RegistryValue Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\GridLedgerDashboard" Name="Environment" Type="multiString">
+            <MultiStringValue Value="GL_DASHBOARD_DATA_DIR=[CommonAppDataFolder]GridLedger\dashboard-data" />
+          </RegistryValue>
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\GridLedger.Dashboard.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="StartMenuDir" Name="GridLedger">
+        <Component Id="StartMenuShortcut" Guid="73229928-603d-4c3d-be8d-73b74c3224ec">
+          <util:InternetShortcut Id="DashboardLink" Name="GridLedger Dashboard" Target="http://127.0.0.1:8080" Type="url" />
+          <RemoveFolder Id="RemoveStartMenuDir" On="uninstall" />
+          <RegistryValue Root="HKLM" Key="Software\GridLedger\Dashboard" Name="StartMenu" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="Main" Title="GridLedger Dashboard" Level="1">
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentRef Id="MainExe" />
+      <ComponentRef Id="StartMenuShortcut" />
+    </Feature>
+
+    <!-- Open the Dashboard when installation finishes (first run asks for the Engine address and gateway key) -->
+    <CustomAction Id="OpenDashboard" Directory="INSTALLFOLDER" ExeCommand="cmd.exe /c start &quot;&quot; http://127.0.0.1:8080" Return="asyncNoWait" Impersonate="yes" />
+    <InstallExecuteSequence>
+      <Custom Action="OpenDashboard" After="InstallFinalize" Condition="NOT Installed AND NOT REMOVE AND UILevel &gt;= 5" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>
